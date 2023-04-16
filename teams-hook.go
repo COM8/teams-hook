@@ -112,7 +112,7 @@ func notifySockets(msg []byte) {
 			break
 		}
 	}
-	log.Printf("Send message to %d websockets", len(connections))
+	log.Printf("Send message of length %d to %d websockets", len(connections), len(connections))
 	connectionMutex.Unlock()
 }
 
@@ -120,8 +120,18 @@ func webhookHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method == "POST" {
 		body := make([]byte, r.ContentLength)
 		r.Body.Read(body)
-		log.Printf("Received POST request with body: %s\n", string(body))
-		notifySockets(body)
+		log.Printf("Received POST request with body: '%s'\n", string(body))
+
+		queryParams := r.URL.Query()
+		validationToken := queryParams.Get("validationToken")
+		if validationToken == "" {
+			notifySockets(body)
+			return
+		} else {
+			log.Printf("Validation token found! Responding...")
+			w.Header().Set("Content-Type", "text/plain")
+			w.Write([]byte(validationToken))
+		}
 	} else {
 		w.WriteHeader(http.StatusMethodNotAllowed)
 	}
