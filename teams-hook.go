@@ -112,7 +112,7 @@ func notifySockets(msg []byte) {
 			break
 		}
 	}
-	log.Printf("Send message of length %d to %d websockets", len(connections), len(connections))
+	log.Printf("Send message of length %d to %d websockets", len(msg), len(connections))
 	connectionMutex.Unlock()
 }
 
