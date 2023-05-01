@@ -1,11 +1,14 @@
 package main
 
 import (
+	b64 "encoding/base64"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"log"
 	"net/http"
 	"os"
+	"regexp"
 	"sync"
 
 	"github.com/gorilla/websocket"
@@ -116,22 +119,91 @@ func notifySockets(msg []byte) {
 	connectionMutex.Unlock()
 }
 
+func parseMsg(msg string) map[string]interface{} {
+	// Replace line breaks:
+	re := regexp.MustCompile(`\r?\n`)
+	msg = re.ReplaceAllString(msg, " ")
+
+	// Extract JSON:
+	r := regexp.MustCompile(`^((\d*:)+)(\{.+\})$`)
+	matches := r.FindStringSubmatch(msg)
+	if len(matches) == 4 {
+		var jsonData map[string]interface{}
+		var m = matches[3]
+		err := json.Unmarshal([]byte(m), &jsonData)
+		if err != nil {
+			log.Println(err)
+			return make(map[string]interface{})
+		}
+		return jsonData
+	}
+
+	return make(map[string]interface{})
+}
+
+func parseExtractEvent(msg string) (map[string]interface{}, bool) {
+	// Parse data:
+	jData := parseMsg(string(msg))
+	if len(jData) <= 0 {
+		log.Println("No valid JSON data received.")
+		return make(map[string]interface{}), false
+	}
+
+	// Extract event data:
+	val, ok := jData["body"]
+	fmt.Printf("val: %v\n", val)
+	if ok {
+		if data, ok := val.(string); ok {
+			var eventData map[string]interface{}
+			err := json.Unmarshal([]byte(data), &eventData)
+			if err != nil {
+				log.Println(err)
+				return make(map[string]interface{}), false
+			}
+
+			val, ok = eventData["gp"]
+			if ok {
+				if data, ok = val.(string); ok {
+					gp, err := b64.StdEncoding.DecodeString(data)
+					if err == nil {
+						var eventPayload map[string]interface{}
+						err = json.Unmarshal([]byte(gp), &eventPayload)
+						if err == nil {
+							return eventPayload, true
+						}
+					}
+				}
+			}
+		}
+	}
+	return make(map[string]interface{}), false
+}
+
 func webhookHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method == "POST" {
 		body := make([]byte, r.ContentLength)
 		r.Body.Read(body)
 		log.Printf("Received POST request with body: '%s'\n", string(body))
 
-		queryParams := r.URL.Query()
+		// Extract
+		eventData, ok := parseExtractEvent(string(body))
+		if ok {
+			// Convert valid JSON back to a string:
+			out, _ := json.Marshal(&eventData)
+			notifySockets(out)
+		}
+
+		/*queryParams := r.URL.Query()
 		validationToken := queryParams.Get("validationToken")
+
 		if validationToken == "" {
 			notifySockets(body)
 			return
 		} else {
 			log.Printf("Validation token found! Responding...")
-			w.Header().Set("Content-Type", "text/plain")
-			w.Write([]byte(validationToken))
-		}
+			// w.Header().Set("Content-Type", "text/plain")
+			// w.Write([]byte(validationToken))
+		}*/
 	} else {
 		w.WriteHeader(http.StatusMethodNotAllowed)
 	}
