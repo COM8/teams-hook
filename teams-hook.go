@@ -181,29 +181,29 @@ func parseExtractEvent(msg string) (map[string]interface{}, bool) {
 
 func webhookHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method == "POST" {
+		// Check if the request is authenticated:
+		authHeader := r.URL.Query().Get("auth") // Send the auth via query parameter to prevent cors issues
+		if authHeader != accessTokenFlag {
+			log.Printf("No valid auth token found! Received '%s' inside the 'auth' header.", authHeader)
+			w.Header().Set("Content-Type", "application/json")
+			w.Write([]byte("{ \"auth\": false }"))
+			w.WriteHeader(http.StatusForbidden)
+			return
+		}
+
+		// Parse the body:
 		body := make([]byte, r.ContentLength)
 		r.Body.Read(body)
 		log.Printf("Received POST request with body: '%s'\n", string(body))
 
-		// Extract
+		// Extract event data:
 		eventData, ok := parseExtractEvent(string(body))
 		if ok {
 			// Convert valid JSON back to a string:
 			out, _ := json.Marshal(&eventData)
+			// Notify all subscribers:
 			notifySockets(out)
 		}
-
-		/*queryParams := r.URL.Query()
-		validationToken := queryParams.Get("validationToken")
-
-		if validationToken == "" {
-			notifySockets(body)
-			return
-		} else {
-			log.Printf("Validation token found! Responding...")
-			// w.Header().Set("Content-Type", "text/plain")
-			// w.Write([]byte(validationToken))
-		}*/
 	} else {
 		w.WriteHeader(http.StatusMethodNotAllowed)
 	}
