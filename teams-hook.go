@@ -78,6 +78,7 @@ func wsAuthenticate(connection *websocket.Conn) bool {
 }
 
 func wsHandler(w http.ResponseWriter, r *http.Request) {
+	upgrader.CheckOrigin = func(r *http.Request) bool { return true }
 	connection, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		log.Println(err)
