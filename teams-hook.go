@@ -14,6 +14,11 @@ import (
 	"github.com/gorilla/websocket"
 )
 
+type wsConnection struct {
+	connection *websocket.Conn
+	id         int64
+}
+
 var (
 	upgrader = websocket.Upgrader{
 		ReadBufferSize:  1024,
@@ -21,26 +26,37 @@ var (
 	}
 
 	connectionMutex sync.Mutex
-	connections     []*websocket.Conn
+	connections     []*wsConnection
 
 	// Flags
 	portFlag        int    = 1997
 	certPathFlag    string = "cert.crt"
 	keyPathFlag     string = "cert.key"
 	accessTokenFlag string = ""
+
+	connId int64 = 0
 )
 
-func addConnection(connection *websocket.Conn) {
+func addConnection(connection *wsConnection) {
 	connectionMutex.Lock()
+
+	connId += 1
+	connection.id = connId
 	connections = append(connections, connection)
+
 	connectionMutex.Unlock()
 }
 
-func removeConnection(connection *websocket.Conn) {
+func removeConnection(connection *wsConnection) {
+	// Only in case the id is >= we added the connection to the list
+	if connection.id <= 0 {
+		return
+	}
+
 	connectionMutex.Lock()
 	var index int = -1
-	for i := 0; i < (len(connections) - 1); i++ {
-		if connections[i] == connection {
+	for i := 0; i < len(connections); i++ {
+		if connections[i].id == connection.id {
 			index = i
 			break
 		}
@@ -84,7 +100,22 @@ func wsHandler(w http.ResponseWriter, r *http.Request) {
 		log.Println(err)
 		return
 	}
+
+	wsConn := wsConnection{connection, 0}
+
 	defer connection.Close()
+	connection.SetCloseHandler(func(code int, text string) error {
+		if len(text) <= 0 {
+			log.Println("Socket closed with code", code, ".")
+		} else {
+			log.Println("Socket closed with code", code, "(", text, ").")
+		}
+
+		// Remove connection
+		removeConnection(&wsConn)
+		log.Println("Connection removed.", len(connections), "connections left.")
+		return nil
+	})
 
 	// Authenticate
 	if !wsAuthenticate(connection) {
@@ -92,8 +123,8 @@ func wsHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Add connection
-	addConnection(connection)
-	log.Println("New connection added.")
+	addConnection(&wsConn)
+	log.Println("New connection added (total", len(connections), ").")
 
 	for {
 		if _, _, err := connection.NextReader(); err != nil {
@@ -102,15 +133,13 @@ func wsHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Remove connection
-	removeConnection(connection)
-	log.Println("Connection removed.")
+	// Connection will be removed once closed
 }
 
 func notifySockets(msg []byte) {
 	connectionMutex.Lock()
 	for i := 0; i <= (len(connections) - 1); i++ {
-		err := connections[i].WriteMessage(websocket.TextMessage, msg)
+		err := connections[i].connection.WriteMessage(websocket.TextMessage, msg)
 		if err != nil {
 			log.Println(err)
 			break
