@@ -180,7 +180,6 @@ func parseExtractEvent(msg string) (map[string]interface{}, bool) {
 
 	// Extract event data:
 	val, ok := jData["body"]
-	fmt.Printf("val: %v\n", val)
 	if ok {
 		if data, ok := val.(string); ok {
 			var eventData map[string]interface{}
@@ -190,6 +189,7 @@ func parseExtractEvent(msg string) (map[string]interface{}, bool) {
 				return make(map[string]interface{}), false
 			}
 
+			// Incoming calls:
 			val, ok = eventData["gp"]
 			if ok {
 				if data, ok = val.(string); ok {
@@ -197,6 +197,18 @@ func parseExtractEvent(msg string) (map[string]interface{}, bool) {
 					if err == nil {
 						var eventPayload map[string]interface{}
 						err = json.Unmarshal([]byte(gp), &eventPayload)
+						if err == nil {
+							return eventPayload, true
+						}
+					}
+				}
+			} else {
+				// Call ended:
+				val, ok = eventData["callEnd"]
+				if ok {
+					if data, ok = val.(string); ok {
+						var eventPayload map[string]interface{}
+						err = json.Unmarshal([]byte(data), &eventPayload)
 						if err == nil {
 							return eventPayload, true
 						}
