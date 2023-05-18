@@ -204,9 +204,9 @@ func parseExtractEvent(msg string) (map[string]interface{}, bool) {
 				}
 			} else {
 				// Call ended:
-				val, ok = eventData["callEnd"]
+				_, ok = eventData["callEnd"]
 				if ok {
-					return val.(map[string]interface{}), true
+					return eventData, true
 				}
 			}
 		}
