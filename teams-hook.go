@@ -205,8 +205,10 @@ func parseExtractEvent(msg string) (map[string]interface{}, bool) {
 			} else {
 				// Call ended:
 				val, ok = eventData["callEnd"]
+				log.Println("VAL: ", val)
 				if ok {
 					if data, ok = val.(string); ok {
+						log.Println("DATA: ", val)
 						var eventPayload map[string]interface{}
 						err = json.Unmarshal([]byte(data), &eventPayload)
 						if err == nil {
