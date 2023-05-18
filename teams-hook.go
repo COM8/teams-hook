@@ -142,7 +142,6 @@ func notifySockets(msg []byte) {
 		err := connections[i].connection.WriteMessage(websocket.TextMessage, msg)
 		if err != nil {
 			log.Println(err)
-			break
 		}
 	}
 	log.Printf("Send message of length %d to %d websockets", len(msg), len(connections))
