@@ -157,17 +157,16 @@ func parseMsg(msg string) map[string]interface{} {
 	r := regexp.MustCompile(`^((\d*:)+)(\{.+\})$`)
 	matches := r.FindStringSubmatch(msg)
 	if len(matches) == 4 {
-		var jsonData map[string]interface{}
-		var m = matches[3]
-		err := json.Unmarshal([]byte(m), &jsonData)
-		if err != nil {
-			log.Println(err)
-			return make(map[string]interface{})
-		}
-		return jsonData
+		msg = matches[3]
 	}
 
-	return make(map[string]interface{})
+	var jsonData map[string]interface{}
+	err := json.Unmarshal([]byte(msg), &jsonData)
+	if err != nil {
+		log.Println(err)
+		return make(map[string]interface{})
+	}
+	return jsonData
 }
 
 func parseExtractEvent(msg string) (map[string]interface{}, bool) {
@@ -275,7 +274,8 @@ func main() {
 	log.Println("Websocket started.")
 
 	log.Println("Teams Hook started.")
-	err := http.ListenAndServeTLS(fmt.Sprintf(":%d", portFlag), certPathFlag, keyPathFlag, nil)
+	// err := http.ListenAndServeTLS(fmt.Sprintf(":%d", portFlag), certPathFlag, keyPathFlag, nil)
+	err := http.ListenAndServe(fmt.Sprintf(":%d", portFlag), nil)
 	if err != nil {
 		log.Fatal("ListenAndServeTLS: ", err)
 	}
