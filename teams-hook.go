@@ -177,6 +177,11 @@ func parseExtractEvent(msg string) (map[string]interface{}, bool) {
 		return make(map[string]interface{}), false
 	}
 
+	_, ok := jData["activity"]
+	if ok {
+		return jData, true
+	}
+
 	// Extract event data:
 	val, ok := jData["body"]
 	if ok {
