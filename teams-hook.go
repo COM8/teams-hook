@@ -249,6 +249,7 @@ func main() {
 	flag.StringVar(&keyPathFlag, "key", "cert.key", "TLS key path")
 	flag.StringVar(&certPathFlag, "cert", "cert.crt", "TLS cert path")
 	flag.IntVar(&portFlag, "port", 1997, "The port for the webserver and websocket are running on")
+	tls := flag.Bool("tls", false, "Enable TLS")
 	help := flag.Bool("help", false, "Show help")
 
 	// Parse the flag
@@ -273,9 +274,14 @@ func main() {
 	http.HandleFunc("/ws", wsHandler)
 	log.Println("Websocket started.")
 
-	log.Println("Teams Hook started.")
-	// err := http.ListenAndServeTLS(fmt.Sprintf(":%d", portFlag), certPathFlag, keyPathFlag, nil)
-	err := http.ListenAndServe(fmt.Sprintf(":%d", portFlag), nil)
+	var err error
+	if *tls {
+		log.Println("Teams Hook started with TLS.")
+		err = http.ListenAndServeTLS(fmt.Sprintf(":%d", portFlag), certPathFlag, keyPathFlag, nil)
+	} else {
+		log.Println("Teams Hook started without TLS.")
+		err = http.ListenAndServe(fmt.Sprintf(":%d", portFlag), nil)
+	}
 	if err != nil {
 		log.Fatal("ListenAndServeTLS: ", err)
 	}
